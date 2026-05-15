@@ -1,0 +1,35 @@
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;0,9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+@import 'tailwindcss';
+
+@theme {
+  --font-serif: 'Fraunces', Georgia, 'Times New Roman', serif;
+  --font-sans: 'Inter', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+
+  --color-deadline-bg: #0a0a0b;
+  --color-deadline-surface: #1a1a1d;
+  --color-deadline-crimson: #b91c1c;
+  --color-deadline-bone: #f5f5f0;
+  --color-deadline-muted: #737373;
+  --color-deadline-gold: #d4a574;
+}
+
+html {
+  -webkit-tap-highlight-color: transparent;
+}
+
+body {
+  margin: 0;
+  min-height: 100dvh;
+  background-color: var(--color-deadline-bg);
+  background-image:
+    radial-gradient(ellipse 120% 80% at 50% -20%, rgba(185, 28, 28, 0.12), transparent 55%),
+    radial-gradient(ellipse 80% 50% at 100% 100%, rgba(26, 26, 29, 0.9), transparent 50%);
+  color: var(--color-deadline-bone);
+  font-family: var(--font-sans);
+}
+
+#root {
+  min-height: 100dvh;
+}
