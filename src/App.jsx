@@ -9,6 +9,7 @@ import {
   ProcessingContent,
 } from './components/ProcessingOverlay.jsx'
 import SealedConfirmation from './components/SealedConfirmation.jsx'
+import { LISTING } from './data/listing.js'
 import { fadeSlide, fadeSlideTransition } from './lib/transitions.js'
 
 const INITIAL_OFFSET_MS =
@@ -24,7 +25,7 @@ function parseBid(raw) {
 }
 
 export default function App() {
-  const [deadline, setDeadline] = useState(() => Date.now() + INITIAL_OFFSET_MS)
+  const [auctionDeadline, setAuctionDeadline] = useState(() => Date.now() + INITIAL_OFFSET_MS)
   const [step, setStep] = useState('enter')
   const [bidRaw, setBidRaw] = useState('')
   const [isTransitioning, setIsTransitioning] = useState(false)
@@ -36,7 +37,10 @@ export default function App() {
   const prevStepRef = useRef(step)
 
   const bidValue = useMemo(() => parseBid(bidRaw), [bidRaw])
-  const holdAmount = bidValue
+  const bidValid = useMemo(
+    () => Number.isFinite(bidValue) && bidValue >= LISTING.minimumBidUsd,
+    [bidValue],
+  )
 
   const clearTransition = useCallback(() => {
     if (transitionTimerRef.current !== null) {
@@ -90,11 +94,18 @@ export default function App() {
     beginTransition()
     setStep('enter')
     setBidRaw('')
-    setDeadline(Date.now() + INITIAL_OFFSET_MS)
+    setAuctionDeadline(Date.now() + INITIAL_OFFSET_MS)
   }, [beginTransition])
 
   const openConfirm = useCallback(() => {
-    if (transitioningRef.current || bidSentRef.current || Number.isNaN(bidValue)) return
+    if (
+      transitioningRef.current ||
+      bidSentRef.current ||
+      !Number.isFinite(bidValue) ||
+      bidValue < LISTING.minimumBidUsd
+    ) {
+      return
+    }
     bidSentRef.current = true
     setStep('confirm')
   }, [bidValue])
@@ -128,12 +139,9 @@ export default function App() {
           {step === 'sealed' ? (
             <SealedConfirmation
               key="sealed"
-              deadline={deadline}
+              auctionDeadline={auctionDeadline}
               bidAmount={bidValue}
-              holdAmount={holdAmount}
-              hotelName="The Obsidian Grand"
-              checkIn="Jun 12, 2026"
-              checkOut="Jun 15, 2026"
+              listing={LISTING}
               isTransitioning={isTransitioning}
               onEnterAnimationComplete={clearTransition}
               onBackToListings={resetFlow}
@@ -158,14 +166,15 @@ export default function App() {
                     transition={fadeSlideTransition}
                     className="flex flex-col"
                   >
+                    <ListingHero deadline={auctionDeadline} listing={LISTING} />
                     <BidInput
                       value={bidRaw}
                       onChange={setBidRaw}
                       onSubmit={openConfirm}
-                      disabledSubmit={Number.isNaN(bidValue)}
+                      disabledSubmit={!bidValid}
                       interactionLocked={isTransitioning || step !== 'enter'}
+                      listing={LISTING}
                     />
-                    <ListingHero deadline={deadline} />
                   </motion.div>
                 ) : null}
               </AnimatePresence>
@@ -176,8 +185,9 @@ export default function App() {
 
       <ConfirmModal
         open={confirmModalOpen}
+        listing={LISTING}
+        auctionDeadline={auctionDeadline}
         bidAmount={bidValue}
-        holdAmount={holdAmount}
         onBack={closeConfirm}
         onConfirm={startProcessing}
         isTransitioning={isTransitioning}

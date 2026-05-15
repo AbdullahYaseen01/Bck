@@ -45,7 +45,7 @@ export function ProcessingContent({ onAnimationComplete }) {
 
       <div>
         <p className="font-serif text-2xl font-semibold text-deadline-bone md:text-3xl">
-          Sealing your bid...
+          Recording your bid...
         </p>
         <div className="mt-5 flex items-center justify-center gap-2">
           {[0, 1, 2].map((i) => (

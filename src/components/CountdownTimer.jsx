@@ -9,6 +9,8 @@ export default function CountdownTimer({
   deadline,
   variant = 'compact',
   label = 'Bidding closes in',
+  /** When true, do not show the default “closed / awaiting resolution” footer. */
+  quietWhenExpired = false,
 }) {
   const [now, setNow] = useState(() => Date.now())
   const [pulseKey, setPulseKey] = useState(0)
@@ -93,7 +95,7 @@ export default function CountdownTimer({
           {expired ? '00:00:00' : formatted}
         </span>
       </div>
-      {expired ? (
+      {expired && !quietWhenExpired ? (
         <p className="mt-2 text-center font-sans text-[11px] leading-snug text-deadline-muted">
           Bidding closed — awaiting resolution.
         </p>
