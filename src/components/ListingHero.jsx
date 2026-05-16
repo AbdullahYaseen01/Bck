@@ -1,17 +1,15 @@
-import CountdownTimer from './CountdownTimer.jsx'
 import { formatUsd } from '../lib/formatUsd.js'
 
-export default function ListingHero({ deadline, listing }) {
+export default function ListingHero({ listing }) {
   const {
     hotelName,
     starVisual,
     neighborhoodLabel,
     addressLine1,
     addressLine2,
-    roomType,
+    inventoryPromiseLabel,
     retailRateLabel,
     retailRateUsd,
-    minimumBidUsd,
     checkIn,
     checkOut,
     amenities,
@@ -19,18 +17,21 @@ export default function ListingHero({ deadline, listing }) {
   } = listing
 
   return (
-    <section className="space-y-4 pb-2">
-      <div className="overflow-hidden rounded-2xl border border-white/[0.06] bg-deadline-surface shadow-[0_24px_80px_-48px_rgba(0,0,0,0.9)]">
-        <div className="relative aspect-[16/10] w-full">
+    <section className="space-y-4 pb-2 lg:pb-8">
+      <div className="overflow-hidden rounded-2xl border border-deadline-gold/35 bg-deadline-surface shadow-[0_24px_80px_-48px_rgba(212,165,116,0.14)] ring-1 ring-deadline-gold/15">
+        <div className="relative aspect-[16/10] w-full lg:aspect-[16/9]">
           <img
             src={heroImageUrl}
             alt=""
             className="h-full w-full object-cover"
             loading="lazy"
           />
-          <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/60 via-black/10 to-black/45" />
-          <div className="absolute left-0 right-0 top-0 z-10 p-2 md:p-3">
-            <CountdownTimer deadline={deadline} variant="compact" />
+          <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/65 via-black/15 to-black/40" />
+          <div className="pointer-events-none absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-deadline-gold/10 to-transparent" />
+          <div className="absolute left-0 right-0 top-0 z-10 flex justify-end p-2 md:p-3">
+            <span className="rounded-full border border-deadline-gold/45 bg-black/50 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-deadline-gold backdrop-blur-md">
+              Instant result
+            </span>
           </div>
         </div>
         <div className="space-y-3 px-4 pb-4 pt-3">
@@ -46,27 +47,16 @@ export default function ListingHero({ deadline, listing }) {
               <br />
               {addressLine2}
             </p>
-            <p className="mt-2 text-xs text-deadline-bone/90">{roomType}</p>
+            <p className="mt-2 text-[11px] leading-snug text-deadline-gold/95">{inventoryPromiseLabel}</p>
           </div>
 
-          <div className="rounded-xl border border-white/[0.08] bg-black/35 px-3 py-3">
+          <div className="rounded-xl border border-deadline-gold/25 bg-black/35 px-3 py-3">
             <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-deadline-muted">
               {retailRateLabel}
             </p>
             <p className="mt-1 font-mono text-lg font-semibold text-deadline-bone md:text-xl">
               {formatUsd(retailRateUsd)}{' '}
-              <span className="font-sans text-xs font-normal text-deadline-muted">
-                total · reference only
-              </span>
-            </p>
-            <div className="mt-2 flex flex-wrap items-baseline justify-between gap-2 border-t border-white/[0.06] pt-2">
-              <span className="text-xs text-deadline-muted">Minimum bid (demo)</span>
-              <span className="font-mono text-sm font-semibold text-deadline-gold">
-                {formatUsd(minimumBidUsd)}
-              </span>
-            </div>
-            <p className="mt-2 text-[11px] leading-snug text-deadline-muted">
-              Retail helps you judge risk; we still never show other people&apos;s bids or ranges.
+              <span className="font-sans text-xs font-normal text-deadline-muted">reference</span>
             </p>
           </div>
 
@@ -74,7 +64,7 @@ export default function ListingHero({ deadline, listing }) {
             {amenities.map((a) => (
               <span
                 key={a}
-                className="rounded-full border border-white/[0.08] bg-black/30 px-3 py-1 text-xs font-medium text-deadline-bone/90"
+                className="rounded-full border border-deadline-gold/15 bg-black/25 px-3 py-1 text-xs font-medium text-deadline-bone/90"
               >
                 {a}
               </span>

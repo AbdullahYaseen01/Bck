@@ -4,16 +4,13 @@ import Header from './components/Header.jsx'
 import BidInput from './components/BidInput.jsx'
 import ListingHero from './components/ListingHero.jsx'
 import ConfirmModal from './components/ConfirmModal.jsx'
-import {
-  ProcessingBackdrop,
-  ProcessingContent,
-} from './components/ProcessingOverlay.jsx'
-import SealedConfirmation from './components/SealedConfirmation.jsx'
+import BidOutcomePanel from './components/BidOutcomePanel.jsx'
+import { ResolutionBackdrop, ResolutionCenter } from './components/ResolutionBeat.jsx'
 import { LISTING } from './data/listing.js'
 import { fadeSlide, fadeSlideTransition } from './lib/transitions.js'
 
-const INITIAL_OFFSET_MS =
-  (2 * 3600 + 47 * 60 + 13) * 1000
+const COMMIT_GRACE_MS = 10_000
+const VERDICT_BEAT_MS = 950
 
 const TRANSITION_FALLBACK_MS = 380
 
@@ -25,9 +22,10 @@ function parseBid(raw) {
 }
 
 export default function App() {
-  const [auctionDeadline, setAuctionDeadline] = useState(() => Date.now() + INITIAL_OFFSET_MS)
   const [step, setStep] = useState('enter')
   const [bidRaw, setBidRaw] = useState('')
+  const [confirmGraceDeadlineMs, setConfirmGraceDeadlineMs] = useState(null)
+  const [outcomeAccepted, setOutcomeAccepted] = useState(null)
   const [isTransitioning, setIsTransitioning] = useState(false)
 
   const bidSentRef = useRef(false)
@@ -37,8 +35,10 @@ export default function App() {
   const prevStepRef = useRef(step)
 
   const bidValue = useMemo(() => parseBid(bidRaw), [bidRaw])
-  const bidValid = useMemo(
-    () => Number.isFinite(bidValue) && bidValue >= LISTING.minimumBidUsd,
+  const bidValid = Number.isFinite(bidValue)
+
+  const savingsUsd = useMemo(
+    () => Math.max(0, LISTING.retailRateUsd - bidValue),
     [bidValue],
   )
 
@@ -64,6 +64,11 @@ export default function App() {
     }, TRANSITION_FALLBACK_MS)
   }, [])
 
+  const resetSubmissionRefs = useCallback(() => {
+    bidSentRef.current = false
+    confirmSentRef.current = false
+  }, [])
+
   useEffect(() => {
     const prev = prevStepRef.current
     if (step === 'confirm' && prev !== 'confirm') {
@@ -73,10 +78,14 @@ export default function App() {
   }, [step])
 
   useEffect(() => {
-    if (step !== 'processing') return undefined
-    const t = window.setTimeout(() => setStep('sealed'), 2000)
+    if (step !== 'verdict') return undefined
+    const t = window.setTimeout(() => {
+      const accepted = bidValue >= LISTING.hotelAcceptThresholdUsd
+      setOutcomeAccepted(accepted)
+      setStep('result')
+    }, VERDICT_BEAT_MS)
     return () => window.clearTimeout(t)
-  }, [step])
+  }, [step, bidValue])
 
   useEffect(
     () => () => {
@@ -89,64 +98,59 @@ export default function App() {
 
   const resetFlow = useCallback(() => {
     if (transitioningRef.current) return
-    bidSentRef.current = false
-    confirmSentRef.current = false
+    resetSubmissionRefs()
+    setConfirmGraceDeadlineMs(null)
+    setOutcomeAccepted(null)
     beginTransition()
     setStep('enter')
     setBidRaw('')
-    setAuctionDeadline(Date.now() + INITIAL_OFFSET_MS)
-  }, [beginTransition])
+  }, [beginTransition, resetSubmissionRefs])
 
   const openConfirm = useCallback(() => {
-    if (
-      transitioningRef.current ||
-      bidSentRef.current ||
-      !Number.isFinite(bidValue) ||
-      bidValue < LISTING.minimumBidUsd
-    ) {
+    if (transitioningRef.current || bidSentRef.current || !Number.isFinite(bidValue)) {
       return
     }
     bidSentRef.current = true
+    setConfirmGraceDeadlineMs(Date.now() + COMMIT_GRACE_MS)
     setStep('confirm')
   }, [bidValue])
 
   const closeConfirm = useCallback(() => {
     if (transitioningRef.current) return
-    bidSentRef.current = false
-    confirmSentRef.current = false
+    resetSubmissionRefs()
+    setConfirmGraceDeadlineMs(null)
     beginTransition()
     setStep('enter')
-  }, [beginTransition])
+  }, [beginTransition, resetSubmissionRefs])
 
-  const startProcessing = useCallback(() => {
+  const submitOffer = useCallback(() => {
     if (transitioningRef.current || confirmSentRef.current) return
     confirmSentRef.current = true
+    setConfirmGraceDeadlineMs(null)
     beginTransition()
-    setStep('processing')
+    setStep('verdict')
   }, [beginTransition])
 
-  const showBidSection = step === 'enter' || step === 'confirm'
+  const tryAnotherOffer = useCallback(() => {
+    if (transitioningRef.current) return
+    resetSubmissionRefs()
+    setOutcomeAccepted(null)
+    beginTransition()
+    setStep('enter')
+  }, [beginTransition, resetSubmissionRefs])
+
+  const showListingShell = step === 'enter' || step === 'confirm' || step === 'verdict' || step === 'result'
   const confirmModalOpen = step === 'confirm'
 
-  const resetDisabled = isTransitioning || step === 'processing'
+  const resetDisabled = isTransitioning || step === 'verdict'
 
   return (
     <div className="min-h-dvh overflow-x-hidden text-deadline-bone">
       <Header />
 
-      <main className="mx-auto max-w-lg px-4 pt-4 md:max-w-3xl md:px-6 md:pt-6">
+      <main className="mx-auto max-w-7xl px-4 pt-4 md:px-6 md:pt-6">
         <AnimatePresence mode="wait">
-          {step === 'sealed' ? (
-            <SealedConfirmation
-              key="sealed"
-              auctionDeadline={auctionDeadline}
-              bidAmount={bidValue}
-              listing={LISTING}
-              isTransitioning={isTransitioning}
-              onEnterAnimationComplete={clearTransition}
-              onBackToListings={resetFlow}
-            />
-          ) : (
+          {showListingShell ? (
             <motion.div
               key="listing-flow"
               variants={fadeSlide}
@@ -154,51 +158,53 @@ export default function App() {
               animate="visible"
               exit="exit"
               transition={fadeSlideTransition}
+              className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_min(340px,36vw)] lg:items-start lg:gap-10 lg:rounded-2xl lg:border lg:border-deadline-gold/15 lg:bg-deadline-gold/[0.02] lg:p-8 lg:ring-1 lg:ring-deadline-gold/10"
             >
-              <AnimatePresence mode="wait">
-                {showBidSection ? (
-                  <motion.div
-                    key="bid-stack"
-                    variants={fadeSlide}
-                    initial="hidden"
-                    animate="visible"
-                    exit="exit"
-                    transition={fadeSlideTransition}
-                    className="flex flex-col"
-                  >
-                    <ListingHero deadline={auctionDeadline} listing={LISTING} />
-                    <BidInput
-                      value={bidRaw}
-                      onChange={setBidRaw}
-                      onSubmit={openConfirm}
-                      disabledSubmit={!bidValid}
-                      interactionLocked={isTransitioning || step !== 'enter'}
-                      listing={LISTING}
-                    />
-                  </motion.div>
-                ) : null}
-              </AnimatePresence>
+              <ListingHero listing={LISTING} />
+              <aside className="lg:sticky lg:top-24 lg:min-w-0 lg:self-start">
+                {step === 'result' && outcomeAccepted !== null ? (
+                  <BidOutcomePanel
+                    listing={LISTING}
+                    accepted={outcomeAccepted}
+                    savingsUsd={savingsUsd}
+                    isTransitioning={isTransitioning}
+                    onTryAnother={tryAnotherOffer}
+                    onDone={resetFlow}
+                  />
+                ) : (
+                  <BidInput
+                    value={bidRaw}
+                    onChange={setBidRaw}
+                    onSubmit={openConfirm}
+                    disabledSubmit={!bidValid}
+                    interactionLocked={
+                      isTransitioning || step !== 'enter'
+                    }
+                    listing={LISTING}
+                  />
+                )}
+              </aside>
             </motion.div>
-          )}
+          ) : null}
         </AnimatePresence>
       </main>
 
       <ConfirmModal
         open={confirmModalOpen}
         listing={LISTING}
-        auctionDeadline={auctionDeadline}
         bidAmount={bidValue}
+        graceDeadlineMs={confirmGraceDeadlineMs}
         onBack={closeConfirm}
-        onConfirm={startProcessing}
+        onConfirm={submitOffer}
         isTransitioning={isTransitioning}
         onSheetAnimationComplete={clearTransition}
       />
 
       <AnimatePresence mode="sync">
-        {step === 'processing' ? (
+        {step === 'verdict' ? (
           <>
-            <ProcessingBackdrop key="proc-bd" />
-            <ProcessingContent key="proc-cn" onAnimationComplete={clearTransition} />
+            <ResolutionBackdrop key="rez-bd" />
+            <ResolutionCenter key="rez-cn" onAnimationComplete={clearTransition} />
           </>
         ) : null}
       </AnimatePresence>
@@ -207,7 +213,7 @@ export default function App() {
         type="button"
         disabled={resetDisabled}
         onClick={() => {
-          if (transitioningRef.current || step === 'processing') return
+          if (transitioningRef.current || step === 'verdict') return
           resetFlow()
         }}
         whileTap={resetDisabled ? undefined : { scale: 0.97 }}

@@ -11,14 +11,11 @@ import {
   fadeSlideTransition,
 } from '../lib/transitions.js'
 
-/** Short window where backing out is clearly safe before “Place binding bid” enables. */
-const COMMIT_GRACE_MS = 12_000
-
 export default function ConfirmModal({
   open,
   listing,
-  auctionDeadline,
   bidAmount,
+  graceDeadlineMs,
   onBack,
   onConfirm,
   isTransitioning,
@@ -27,7 +24,6 @@ export default function ConfirmModal({
   const [isMdUp, setIsMdUp] = useState(
     () => typeof window !== 'undefined' && window.matchMedia('(min-width: 768px)').matches,
   )
-  const [graceDeadline, setGraceDeadline] = useState(null)
   const [now, setNow] = useState(() => Date.now())
 
   useEffect(() => {
@@ -38,18 +34,10 @@ export default function ConfirmModal({
   }, [])
 
   useEffect(() => {
-    if (!open) {
-      setGraceDeadline(null)
-      return
-    }
-    setGraceDeadline(Date.now() + COMMIT_GRACE_MS)
-  }, [open])
-
-  useEffect(() => {
-    if (!open || graceDeadline == null) return undefined
+    if (graceDeadlineMs == null) return undefined
     const id = window.setInterval(() => setNow(Date.now()), 250)
     return () => window.clearInterval(id)
-  }, [open, graceDeadline])
+  }, [graceDeadlineMs])
 
   const sheetVariants = useMemo(() => (isMdUp ? fadeSlide : fadeSlideSheet), [isMdUp])
   const sheetTransition = useMemo(
@@ -58,7 +46,7 @@ export default function ConfirmModal({
   )
 
   const bidLabel = formatUsd(bidAmount)
-  const graceExpired = graceDeadline != null && now >= graceDeadline
+  const graceExpired = graceDeadlineMs != null && now >= graceDeadlineMs
   const busy = isTransitioning
 
   return (
@@ -74,7 +62,7 @@ export default function ConfirmModal({
             animate="visible"
             exit="exit"
             transition={backdropFadeTransition}
-            className="fixed inset-0 z-[80] bg-black/70 backdrop-blur-[2px]"
+            className="fixed inset-0 z-[80] bg-black/75 backdrop-blur-[2px]"
             onClick={() => {
               if (busy) return
               onBack()
@@ -92,92 +80,60 @@ export default function ConfirmModal({
               animate="visible"
               exit="exit"
               transition={sheetTransition}
-              className="pointer-events-auto relative max-h-[min(92dvh,840px)] w-full max-w-lg overflow-y-auto rounded-t-3xl border border-white/[0.08] bg-deadline-surface px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-6 shadow-[0_-32px_120px_-48px_rgba(0,0,0,0.95)] md:rounded-3xl md:border md:pb-6 md:shadow-[0_40px_120px_-56px_rgba(0,0,0,0.85)]"
+              className="pointer-events-auto relative max-h-[min(88dvh,640px)] w-full max-w-md overflow-y-auto rounded-t-3xl border border-deadline-crimson/45 bg-[#141416] px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-5 shadow-[0_-24px_80px_-24px_rgba(185,28,28,0.55)] md:rounded-2xl md:shadow-[0_40px_100px_-40px_rgba(185,28,28,0.45)]"
               onAnimationComplete={onSheetAnimationComplete}
             >
-              <div
-                className="mx-auto mb-5 h-1 w-10 rounded-full bg-white/15 md:hidden"
-                aria-hidden
-              />
+              <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-deadline-crimson/35 md:hidden" aria-hidden />
 
               <p
                 id="confirm-bid-title"
-                className="font-serif text-center text-xs font-medium uppercase tracking-[0.2em] text-deadline-muted"
+                className="text-center font-serif text-[10px] font-medium uppercase tracking-[0.26em] text-deadline-crimson"
               >
-                Confirm what you&apos;re buying
+                Final bid
               </p>
 
-              <div className="mt-5 space-y-3">
-                <CountdownTimer deadline={auctionDeadline} variant="compact" />
-                {graceDeadline != null ? (
-                  <CountdownTimer
-                    deadline={graceDeadline}
-                    variant="compact"
-                    label="Free to withdraw — locks in"
-                    quietWhenExpired
-                  />
-                ) : null}
-              </div>
-
-              <p className="mt-3 text-center text-xs leading-relaxed text-deadline-muted">
-                {graceExpired ? (
-                  <>
-                    Withdraw window ended.{' '}
-                    <span className="text-deadline-bone/95">
-                      From here on, placing your bid is binding—no negotiating with the hotel or us.
-                    </span>
-                  </>
-                ) : (
-                  <>
-                    Go back anytime until the withdraw timer hits zero. After that, tap commit only if you accept this
-                    price rule: winner pays their bid when the auction closes (if it clears our minimum).
-                  </>
-                )}
-              </p>
-
-              <p className="mt-6 text-center font-mono text-4xl font-semibold tabular-nums text-deadline-bone sm:text-5xl">
+              <p className="mt-3 text-center font-mono text-3xl font-semibold tabular-nums text-deadline-bone sm:text-4xl">
                 {bidLabel}
               </p>
-              <p className="mt-2 text-center text-xs text-deadline-muted">Your bid (winner pays this)</p>
+              <p className="mt-1 text-center text-[11px] text-deadline-muted">{listing.hotelName}</p>
 
-              <div className="mt-6 space-y-3 rounded-xl border border-white/[0.06] bg-black/25 px-4 py-4 text-sm">
-                <div className="border-b border-white/[0.06] pb-3">
-                  <p className="font-sans text-xs font-semibold uppercase tracking-[0.18em] text-deadline-muted">
-                    Listing
-                  </p>
-                  <p className="mt-2 font-sans font-semibold text-deadline-bone">{listing.hotelName}</p>
-                  <p className="mt-1 text-xs leading-relaxed text-deadline-muted">
-                    {listing.addressLine1}, {listing.addressLine2}
-                  </p>
-                  <p className="mt-1 text-xs text-deadline-muted">{listing.roomType}</p>
-                  <p className="mt-2 font-mono text-xs text-deadline-bone">
-                    {listing.checkIn} → {listing.checkOut}
-                  </p>
-                </div>
-                <div className="flex items-start justify-between gap-3">
-                  <span className="text-deadline-muted">{listing.retailRateLabel}</span>
-                  <span className="text-right font-mono font-medium text-deadline-bone">
-                    {formatUsd(listing.retailRateUsd)}
-                  </span>
-                </div>
-                <div className="flex items-start justify-between gap-3 border-t border-white/[0.06] pt-3">
-                  <span className="text-deadline-muted">Floor bid (demo)</span>
-                  <span className="font-mono font-medium text-deadline-bone">
-                    {formatUsd(listing.minimumBidUsd)}
-                  </span>
-                </div>
-                <div className="flex items-start justify-between gap-3 border-t border-white/[0.06] pt-3">
-                  <span className="text-deadline-muted">Your bid</span>
-                  <span className="font-mono font-medium text-deadline-crimson">{bidLabel}</span>
-                </div>
+              <div className="mt-4 rounded-xl border border-deadline-crimson/40 bg-deadline-crimson/[0.12] px-3 py-3">
+                <p className="text-center text-[11px] font-semibold leading-snug text-deadline-bone">
+                  If accepted, your card is charged immediately after you confirm.
+                </p>
               </div>
 
-              <p className="mt-4 text-sm leading-relaxed text-deadline-muted">
-                When the auction clock hits zero, it resolves in one shot—no inbox threads. If your bid wins and clears
-                the floor, that&apos;s your checkout price for this stay. If not, your obligation ends.
+              {graceDeadlineMs != null ? (
+                <div className="mt-4">
+                  <CountdownTimer
+                    deadline={graceDeadlineMs}
+                    variant="compact"
+                    label="Withdraw window"
+                    quietWhenExpired
+                  />
+                </div>
+              ) : null}
+
+              <p className="mt-2 text-center text-[11px] text-deadline-muted">
+                {graceExpired ? 'Ready to submit.' : 'Step away anytime until this hits zero.'}
               </p>
 
-              <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+              <div className="mt-4 rounded-xl border border-white/[0.07] bg-black/35 px-3 py-3 text-[11px]">
+                <p className="font-medium text-deadline-bone">{listing.hotelName}</p>
+                <p className="mt-1 text-deadline-muted">
+                  {listing.addressLine1}, {listing.addressLine2}
+                </p>
+                <p className="mt-2 flex justify-between gap-2 border-t border-white/[0.06] pt-2 font-mono text-deadline-muted">
+                  <span className="font-sans font-normal">Published reference</span>
+                  <span className="text-deadline-bone">{formatUsd(listing.retailRateUsd)}</span>
+                </p>
+                <p className="mt-1 flex justify-between gap-2 font-mono text-deadline-crimson">
+                  <span className="font-sans font-normal text-deadline-muted">Your price</span>
+                  <span>{bidLabel}</span>
+                </p>
+              </div>
+
+              <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
                 <motion.button
                   type="button"
                   onClick={() => {
@@ -186,9 +142,9 @@ export default function ConfirmModal({
                   }}
                   disabled={busy}
                   whileTap={busy ? undefined : { scale: 0.97 }}
-                  className="min-h-[44px] w-full rounded-xl border border-white/[0.12] bg-transparent px-4 py-3.5 text-sm font-semibold text-deadline-bone outline-none ring-deadline-crimson/25 hover:bg-white/[0.04] focus-visible:ring-2 disabled:pointer-events-none disabled:opacity-60 sm:w-auto sm:min-w-[120px]"
+                  className="min-h-[44px] w-full rounded-xl border border-white/[0.12] bg-transparent px-4 py-3 text-sm font-semibold text-deadline-bone hover:bg-white/[0.04] disabled:pointer-events-none disabled:opacity-60 sm:w-auto"
                 >
-                  Go back
+                  Back
                 </motion.button>
                 <motion.button
                   type="button"
@@ -198,10 +154,9 @@ export default function ConfirmModal({
                   }}
                   disabled={busy || !graceExpired}
                   whileTap={busy || !graceExpired ? undefined : { scale: 0.97 }}
-                  transition={{ type: 'spring', stiffness: 520, damping: 22 }}
-                  className="min-h-[44px] w-full rounded-xl bg-deadline-crimson px-4 py-3.5 text-sm font-semibold tracking-wide text-white shadow-[0_14px_44px_-18px_rgba(185,28,28,0.85)] outline-none ring-2 ring-transparent hover:shadow-[0_0_26px_rgba(185,28,28,0.45)] focus-visible:ring-deadline-crimson/70 disabled:pointer-events-none disabled:opacity-60 sm:w-auto sm:min-w-[200px]"
+                  className="min-h-[44px] w-full rounded-xl bg-deadline-crimson px-4 py-3 text-sm font-semibold tracking-wide text-white shadow-[0_14px_40px_-18px_rgba(185,28,28,0.85)] hover:shadow-[0_0_22px_rgba(185,28,28,0.45)] disabled:pointer-events-none disabled:opacity-60 sm:w-auto sm:min-w-[160px]"
                 >
-                  Place binding bid
+                  Submit
                 </motion.button>
               </div>
             </motion.div>

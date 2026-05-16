@@ -9,6 +9,8 @@ export default function CountdownTimer({
   deadline,
   variant = 'compact',
   label = 'Bidding closes in',
+  /** Extra context under the timer (e.g. midnight hotel-local caption). */
+  subtitle,
   /** When true, do not show the default “closed / awaiting resolution” footer. */
   quietWhenExpired = false,
 }) {
@@ -95,6 +97,17 @@ export default function CountdownTimer({
           {expired ? '00:00:00' : formatted}
         </span>
       </div>
+      {subtitle ? (
+        <p
+          className={
+            isHero
+              ? 'mt-2 text-center font-sans text-[11px] leading-snug text-deadline-muted'
+              : 'mt-1.5 font-sans text-[10px] leading-snug text-deadline-muted sm:text-[11px]'
+          }
+        >
+          {subtitle}
+        </p>
+      ) : null}
       {expired && !quietWhenExpired ? (
         <p className="mt-2 text-center font-sans text-[11px] leading-snug text-deadline-muted">
           Bidding closed — awaiting resolution.
